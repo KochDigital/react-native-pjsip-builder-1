@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM ubuntu:22.04
 
 ##############################
 # Download dependencies
@@ -12,25 +12,25 @@ RUN dpkg --add-architecture i386 && \
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
     software-properties-common git curl bzip2 gcc g++ binutils make autoconf openssl \
     libssl-dev libc6-dev file ant libopus0 libpcre3 libpcre3-dev build-essential nasm libc6:i386 libstdc++6:i386 zlib1g:i386 \
-    openjdk-8-jdk unzip
+    openjdk-17-jdk unzip python3 python3-distutils-extra
 
 ##############################
 # Configuration
 ##############################
 
 # ENV TARGET_ARCHS "armeabi armeabi-v7a x86 mips arm64-v8a x86_64 mips64"
-ENV TARGET_ARCHS "armeabi-v7a x86 arm64-v8a x86_64" 
-ENV ANDROID_NDK_DOWNLOAD_URL "https://dl.google.com/android/repository/android-ndk-r25c-linux.zip"
-ENV ANDROID_SDK_DOWNLOAD_URL "https://dl.google.com/android/repository/tools_r25.2.5-linux.zip"
-ENV ANDROID_SETUP_APIS "23 25"
-ENV ANDROID_BUILD_TOOLS_VERSION 25
-ENV ANDROID_TARGET_API 23
+ENV TARGET_ARCHS "armeabi-v7a x86 arm64-v8a x86_64"
+# NDK r27b: minimum version that supports 16 KB page size ELF alignment (-Wl,-z,max-page-size=16384)
+ENV ANDROID_NDK_DOWNLOAD_URL "https://dl.google.com/android/repository/android-ndk-r27b-linux.zip"
+# ANDROID_TARGET_API raised to 29 to match app minSdkVersion
+ENV ANDROID_TARGET_API 29
 
 ENV PJSIP_DOWNLOAD_URL "https://github.com/pjsip/pjproject/archive/refs/tags/2.13.tar.gz"
 
 ENV SWIG_DOWNLOAD_URL "http://prdownloads.sourceforge.net/swig/swig-4.1.1.tar.gz"
 
-ENV OPENSSL_DOWNLOAD_URL "https://www.openssl.org/source/openssl-1.0.2g.tar.gz"
+# OpenSSL 1.1.1w: last 1.1.x LTS — required because PJSIP 2.13 does not yet support OpenSSL 3.x
+ENV OPENSSL_DOWNLOAD_URL "https://www.openssl.org/source/openssl-1.1.1w.tar.gz"
 
 ENV OPUS_DOWNLOAD_URL "http://downloads.xiph.org/releases/opus/opus-1.2.1.tar.gz"
 ENV OPUS_ANDROID_MK_DOWNLOAD_URL "https://trac.pjsip.org/repos/raw-attachment/ticket/1904/Android.mk"
@@ -42,40 +42,21 @@ ENV PATH /sources/android_ndk:$PATH
 ##############################
 
 RUN mkdir -p /sources/android_ndk && \
-    mkdir -p /sources/android_sdk && \
     mkdir -p /sources/pjsip && \
     mkdir -p /sources/swig && \
     mkdir -p /sources/openssl && \
     mkdir -p /sources/opus
 
-# Download Android NDK
+# Download Android NDK r27b (supports 16 KB ELF page alignment)
 RUN cd /sources/android_ndk && \
-	curl -L -# -o ndk.zip "$ANDROID_NDK_DOWNLOAD_URL" && \
+    curl -L -# -o ndk.zip "$ANDROID_NDK_DOWNLOAD_URL" && \
     unzip ndk.zip && \
     rm -rf ndk.zip && \
-    mv android-*/* ./
+    mv android-ndk-*/* ./
 
 ENV ANDROID_NDK_ROOT /sources/android_ndk
 ENV MACHINE linux-x86_64
 ENV TOOLCHAIN $ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$MACHINE
-
-# Download Android SDK & APIs
-RUN cd /sources/android_sdk && \
-    curl -L -# -o sdk.zip "$ANDROID_SDK_DOWNLOAD_URL" && \
-    unzip sdk.zip
-
-RUN cd /sources/android_sdk/tools && \
-    ALL_SDK=$(./android list sdk --all) && \
-    IFS=" " && \
-    for api in $ANDROID_SETUP_APIS; \
-    do \
-      PACKAGE=$(echo "${ALL_SDK}" | grep "API ${api}" | head -n 1 | awk '{print $1}' | cut -d'-' -f 1); \
-      echo yes | ./android update sdk --all --filter ${PACKAGE} --no-ui --force; \
-    done && \
-    PACKAGE=$(echo "${ALL_SDK}" | grep "Android SDK Platform-tools" | head -n 1 | awk '{print $1}' | cut -d'-' -f 1) && \
-    echo yes | ./android update sdk --all --filter ${PACKAGE} --no-ui --force && \
-    PACKAGE=$(echo "${ALL_SDK}" | grep "Build-tools" | grep "${BUILD_TOOLS_VERSION}" | head -n 1 | awk '{print $1}' | cut -d'-' -f 1) && \
-    echo yes | ./android update sdk --all --filter ${PACKAGE} --no-ui --force
 
 # Download Pjsip
 RUN cd /sources/pjsip && \
@@ -136,7 +117,6 @@ RUN cd /sources/swig && \
     make && \
     make install
 
-RUN apt-get install python3-distutils -y
 # Build openssl
 ADD ./build_openssl.sh /usr/local/sbin/
 RUN IFS=" " && \

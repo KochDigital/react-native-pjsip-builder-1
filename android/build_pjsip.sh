@@ -20,8 +20,13 @@ cd /tmp/pjsip
 export TARGET_ABI=${TARGET_ARCH}
 export APP_PLATFORM=android-${ANDROID_TARGET_API}
 export ANDROID_NDK_ROOT=/sources/android_ndk
-export ANDROID_SYSROOT="${ANDROID_NDK_ROOT}/platforms/${APP_PLATFORM}/arch-arm"
-# export NDK_LDFLAGS="--sysroot=${ANDROID_SYSROOT}"
+
+# 16 KB memory page support (required by Google Play for targetSdk >= 35 apps with native libs).
+# -Wl,-z,max-page-size=16384 instructs the linker to align ELF LOAD segments to 16 KB (0x4000)
+# so the library can be mmap-ed on both 4 KB and 16 KB page-size kernels without re-extraction.
+# NDK r26b+ is required for this flag to be honoured; we use r27b.
+# See: https://developer.android.com/guide/practices/page-sizes
+export LDFLAGS="-Wl,-z,max-page-size=16384"
 
 ./configure-android \
     --use-ndk-cflags \
