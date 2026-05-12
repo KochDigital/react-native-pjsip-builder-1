@@ -33,7 +33,8 @@ ENV SWIG_DOWNLOAD_URL "http://prdownloads.sourceforge.net/swig/swig-4.1.1.tar.gz
 ENV OPENSSL_DOWNLOAD_URL "https://www.openssl.org/source/openssl-1.1.1w.tar.gz"
 
 ENV OPUS_DOWNLOAD_URL "http://downloads.xiph.org/releases/opus/opus-1.2.1.tar.gz"
-ENV OPUS_ANDROID_MK_DOWNLOAD_URL "https://trac.pjsip.org/repos/raw-attachment/ticket/1904/Android.mk"
+# trac.pjsip.org is permanently offline; the Android.mk is bundled in assets/
+COPY assets/opus-Android.mk /usr/local/share/opus-Android.mk
 
 ENV PATH /sources/android_ndk:$PATH
 
@@ -86,8 +87,7 @@ RUN cd /sources/opus && \
     rm -rf opus.tar.gz && \
     mv opus-*/* ./ && \
     mkdir ./jni && \
-    cd ./jni && \
-    curl -L -# -o Android.mk "$OPUS_ANDROID_MK_DOWNLOAD_URL"
+    cp /usr/local/share/opus-Android.mk ./jni/Android.mk
 
 
 ##############################
