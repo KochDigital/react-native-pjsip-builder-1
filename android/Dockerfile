@@ -56,6 +56,8 @@ RUN cd /sources/android_ndk && \
     mv android-ndk-*/* ./
 
 ENV ANDROID_NDK_ROOT /sources/android_ndk
+# OpenSSL 1.1.x uses ANDROID_NDK_HOME; NDK r27 uses ANDROID_NDK_ROOT — export both
+ENV ANDROID_NDK_HOME /sources/android_ndk
 ENV MACHINE linux-x86_64
 ENV TOOLCHAIN $ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$MACHINE
 
